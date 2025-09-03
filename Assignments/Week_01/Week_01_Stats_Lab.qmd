@@ -1,0 +1,56 @@
+---
+title: "Week_01_Stats_Lab"
+format: html
+---
+
+```{r}
+library(tidyverse)
+library(broom)
+```
+
+```{r}
+drvef2023 <- read.csv("data/drvef2023.csv")
+```
+
+```{r}
+d <- drvef2023 |> 
+  select(UNITID, RET_PCF, STUFACR, PCUENRW) |> 
+  mutate(Ret_Rate = as.numeric(RET_PCF),
+         Stu_Fac = as.numeric(STUFACR)) |> 
+  filter(Stu_Fac < 70)
+```
+
+```{r}
+ggplot(d,
+       aes(x=Ret_Rate)) +
+  geom_histogram() +
+  theme_minimal()
+
+ggplot(d,
+       aes(x=Stu_Fac)) +
+  geom_histogram() +
+  theme_minimal()
+```
+
+```{r}
+ggplot(d,
+       aes(x=Stu_Fac,
+           y=Ret_Rate)) +
+  geom_point() +
+  theme_minimal()
+
+```
+
+```{r}
+m1 <- lm(Ret_Rate ~ Stu_Fac, data = d, na.omit(T))
+summary(m1)
+```
+
+```{r}
+ggplot(d,
+       aes(x=Stu_Fac,
+           y=Ret_Rate)) +
+  geom_point() +
+  geom_smooth(method = lm) +
+  theme_minimal()
+```

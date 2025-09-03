@@ -1,0 +1,136 @@
+---
+title: "Week_01_Homework"
+author: Shannon Tozier
+format: 
+  html: default
+  pdf: default
+---
+
+```{r}
+set.seed(1)
+```
+
+```{r}
+library(tidyverse)
+```
+
+# 1. Probability Review
+
+a.  P(Kenya) = (4+9)/(3+4+3+38000+9+18000) = 0.00023 = 0.023%.
+
+    P(USA) = (3+38000)/(3+4+3+38000+9+18000) = 0.678 = 67.8%.
+
+b.  P(Kenya, Top10) = 4/(3+4+3+38000+9+18000) = 0.00007 = 0.007%
+
+    P(Kenya, \~Top10) = 9/(3+4+3+38000+9+18000) = 0.00016 = 0.016%
+
+c.  P(Top10 \| Kenya) = 4/(4+9) = 0.308 = 30.8%
+
+    P(Kenya \| Top10} = 4/(3+4+3) = 0.4 = 40%
+
+d.  To compare the performance of US and Kenyan runners as they represent the nationalities of the top runners, I would compare the conditional probability of being American given that the runner is in the top 10 P(USA \| Top10) and the conditional probability of being Kenyan given that the runner is in the top 10 P(Kenya \| Top10). Otherwise the sheer number of American runners in comparison with the number of Kenyan runners would dilute calculations of the American performance. However, if I wanted to compare the US and Kenya in terms of which country produces the best performing runners, I would compare the conditional probability of being in the top 10 given the runner is American P(Top10 \| USA) with the conditional probability of being in the top 10 given the runner is Kenyan P(Top10 \| Kenya). This would better represent the fact that Kenya produced a large percent of the top 10 with only a small number of chances (runners) to do so, while the US had the most runners in the race by far and were thus more likely to have runners in the top 10 purely by numbers.
+
+# 2. Regression Review
+
+```{r}
+marathon_data <- readRDS("data/nyc_marathon.RDS")
+```
+
+a.  
+
+    ```{r}
+    ggplot(marathon_data,
+           aes(x = time_seconds)) +
+      geom_histogram(bins = 500) +
+      labs(x= "Time in Seconds", y= "Number of Runners") +
+      theme_minimal()
+    ```
+
+    The distribution is right-skewed and appears slightly bi-modal (likely centered around the two means for men and women), but is fairly normally distributed around 15,000 seconds.
+
+b.  
+
+    ```{r}
+    dsample <- sample_n(marathon_data, 500)
+    ```
+
+    ```{r}
+    ggplot(dsample,
+           aes(x = age, y = time_seconds)) +
+      geom_point() +
+      labs(x= "Age", y = "Time in Seconds") +
+      theme_minimal()
+    ```
+
+c.  
+
+    ```{r}
+    m1 <- lm(time_seconds ~ age,
+             data = dsample)
+
+    summary(m1)
+
+    ggplot(dsample,
+           aes(x = age, y = time_seconds)) +
+      geom_point() +
+      geom_smooth(method = lm) +
+      labs(x= "Age", y = "Time in Seconds") +
+      theme_minimal()
+    ```
+
+    The intercept is \~13603, which means the model predicts that a newborn would finish the marathon in 13,603 seconds (less than 4 hours!). The coefficient on age is \~66, suggesting that for every year older a person is, it will take them 66 more seconds (about a minute longer) to finish the marathon.
+
+d.  For a runner who is 5 years old, the model predicts them to finish the marathon in (66.45\*5) + 13603.41 = 13,935.66 seconds (or 232 minutes / 3 hours and 52 minutes).
+
+    For a runner who is 20 years old, the model predicts them to finish the marathon in (66.45\*20) + 13603.41 = 14,932.41 seconds (or 249 minutes / 4 hours and 9 minutes).
+
+    For a runner who is 50 years old, the model predicts them to finish the marathon in (66.45\*50) + 13603.41 = 16,925.91 seconds (or 282 minutes / 4 hours and 42 minutes).
+
+    For a runner who is 110 years old, the model predicts them to finish the marathon in (66.45\*110) + 13603.41 = 20,912.91 seconds (or 349 minutes / 5 hours and 49 minutes).
+
+e.  
+
+    ```{r}
+    m2 <- lm(time_seconds ~ age,
+             data = marathon_data)
+    summary(m2)
+
+    ggplot(marathon_data,
+           aes(x = age, y = time_seconds)) +
+      geom_point() +
+      geom_smooth(method = lm) +
+      geom_abline(intercept = 13603.41, slope = 66.45, color = "red") +
+      labs(x= "Age", y = "Time in Seconds") +
+      theme_minimal()
+    ```
+
+    The prediction is very similar to the actual population values. This is likely due to a combination of a relatively large sample size and the random collection of observations that were in the sample. They would get more similar if even larger samples were taken.
+
+f.  
+
+    ```{r}
+    age_coefficients <- numeric(3000)
+
+    for (i in 1:3000) {
+      sample_indices <- sample(nrow(marathon_data), size = 500, replace = TRUE)
+      sample_data <- marathon_data[sample_indices, ]
+      model <- lm(time ~ age, data = sample_data)
+      age_coefficients[i] <- coef(model)["age"]
+    }
+
+    repeated_sample_cfs <- data.frame(
+      sample_number = 1:3000,
+      age_coefficient = age_coefficients
+    )
+    ```
+
+    ```{r}
+    ggplot(repeated_sample_cfs,
+           aes(x=age_coefficients)) +
+      geom_histogram(bins=500) +
+      geom_vline(xintercept = 65.26, color="red") +
+      labs(x="Predicted Coefficient on Age", y="Count") +
+      theme_minimal()
+    ```
+
+    As repeated samples are taken, the coefficient estimates from the samples form a normal distribution around the true population value.
