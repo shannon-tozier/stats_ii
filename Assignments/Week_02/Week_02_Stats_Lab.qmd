@@ -1,0 +1,103 @@
+---
+title: "Week_02_Stats_Lab"
+format: html
+---
+
+```{r}
+library(tidyverse)
+library(gssr)
+library(gssrdoc)
+```
+
+```{r}
+gss2022 <- readRDS("data/gss2022.rds")
+```
+
+```{r}
+d <- gss2022 |>
+  select(res16, educ, sex) |> 
+  mutate(suburbs = case_when(res16 == 1 ~ 0,
+                           res16 == 2 ~ 0,
+                           res16 == 3 ~ 0,
+                           res16 == 4 ~ 0,
+                           res16 == 5 ~ 1,
+                           res16 == 6 ~ 0),
+         degree = if_else(educ >= 16, 1, 0)) |> 
+  drop_na(suburbs, degree, sex)
+```
+
+### Research question
+
+What effect does living in the suburbs in adolescence have the probability of getting a college degree?
+
+### Theoretical Estimand
+
+Unit of analysis: individuals
+
+Treatment: living in the suburbs in adolescence
+
+Outcome: whether or not the individual gets a college degree
+
+Classes: Men and Women
+
+Unit specific quantity: $\delta_i = y_i^1 - y_i^0$
+
+Target population: US population
+
+Theoretical Estimand: $ATE = E(Y^1) - E(Y^0)$
+
+### Empirical Estimand
+
+$\widehat{ATE} = \frac{1}{n_{T = 1}} \sum_{i \in S_{T = 1}} Y_i - \frac{1}{n_{T = 0}} \sum_{i \in S_{T = 0}} Y_i$
+
+### Estimating the Difference with the Data
+
+```{r}
+d2 <- d |> 
+  filter(sex==1)
+d3 <- d |> 
+  filter(sex==2)
+```
+
+| Class | Percent Pop | Risk | Treatment Effect |
+|-------|-------------|------|------------------|
+| Men   | 50%         | 0.36 | 0.10             |
+| Women | 50%         | 0.38 | 0.13             |
+
+ATE = 0.115
+
+**Average difference**
+
+```{r}
+table(d$degree, d$suburbs)
+```
+
+P(degree\|\~suburbs) = 0.354
+
+P(degree\|suburbs) = 0.471
+
+Difference = 0.117
+
+**For men**
+
+```{r}
+table(d2$degree, d2$suburbs)
+```
+
+P(degree\|\~suburbs) = 0.348
+
+P(degree\|suburbs) = 0.450
+
+Difference = 0.102
+
+```{r}
+table(d3$degree, d3$suburbs)
+```
+
+**For women**
+
+P(degree\|\~suburbs) = 0.360
+
+P(degree\|suburbs) = 0.487
+
+Difference = 0.127

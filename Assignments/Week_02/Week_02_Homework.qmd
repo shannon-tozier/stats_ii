@@ -1,0 +1,171 @@
+---
+title: "Week_02_Homework"
+format: html
+---
+
+```{r}
+set.seed(1)
+```
+
+```{r}
+library(tidyverse)
+library(broom)
+```
+
+### 1. Simulating the Dataset
+
+```{r}
+delta <- 5
+n <- 100
+q1_mean <- 65
+q1_sd <- 3
+beta0 <- 10
+beta1 <- 1.1
+```
+
+```{r}
+students <- 1:n
+q1_score <- rnorm(n, mean = q1_mean, sd = q1_sd)
+u0 <- rnorm(n, mean = 0, sd = 1)
+u1 <- rnorm(n, mean = 0, sd = 1)
+```
+
+```{r}
+y0 <- beta0 + (beta1*q1_score) + u0
+y1 <- beta0 + (beta1*q1_score) + delta + u1
+```
+
+```{r}
+treatment = sample(c(rep(1, n/2), rep(0, n/2)))
+```
+
+```{r}
+q2_score <- ifelse(treatment == 0, y0, y1)
+```
+
+```{r}
+d <- tibble(students = students,
+            q1_score = q1_score,
+            treatment = treatment,
+            y0 = y0,
+            y1 = y1,
+            q2_score = q2_score)
+```
+
+### 2.
+
+\(a\) delta being 5 means that on average, the students who received the extra tutoring scored 5 points higher on the second quiz than the students who did not get the tutoring.
+
+\(b\) The intercept for y1 and y0 being 10 means that all of the students scored (on average) 10 points higher on the second quiz than they did on the first quiz.
+
+\(c\) The beta1 coefficient being 1.1 means that (on average) all of the students had a 10% increase in their score from quiz one to quiz two. This is different than a 10 point increase—a 10% increase would mean that a student who scored a 60 on the first quiz would see an increase of 6 points on the second quiz. Combined with the 10 point increase represented by the intercept, their total quiz 2 score would be 76 (with an error term).
+
+### 3.
+
+\(a\)
+
+```{r}
+
+mean((d$y1 - d$y0))
+```
+
+The SATE is 5.07, which is very close to delta, which was 5. The minimal difference comes from the random variance in the error terms.
+
+\(b\)
+
+```{r}
+mean((d$q2_score[d$treatment==1] - d$q2_score[d$treatment==0]))
+```
+
+The estimated SATE is 5.01. This, surprisingly, is closer to delta than the actual SATE, but that likely is also due to the random variance in error terms. However, all 3 of the values are close enough that meaningful and accurate interpretation of the estimated SATE is still possible. This is because treatment assignment was completely independent of the y0 and y1 values.
+
+\(c\)
+
+```{r}
+SATE_est <- c()
+
+for(i in 1:500){
+  
+  SATE_est[i] <- 
+    d |> 
+    mutate(treated = rbinom(1, n = 100, p = .5), 
+           y_obs = ifelse(treated == 0, y0, y1)) |>
+    group_by(treated) |> 
+    summarise(e_y = sum(y_obs)/n()) |> 
+    mutate(treated = paste0("e_y", treated)) |> 
+    pivot_wider(names_from = treated, values_from = e_y) |> 
+    mutate(SATE_est = e_y1 - e_y0) |> 
+    pull(SATE_est)
+  
+}
+```
+
+```{r}
+SATE_est_plot <- 
+  SATE_est |> 
+  as_tibble() |> 
+  ggplot(aes(value)) +
+  geom_density(color = "orange", linewidth = 1, trim = TRUE) +
+  geom_vline(aes(xintercept = 5.07), color = "red",  linewidth = 1) +
+  ggtitle(expression("Sampling distribution of " * widehat(SATE)))
+
+SATE_est_plot
+
+mean(SATE_est)
+
+sd(SATE_est)
+```
+
+The mean of the distribution is 5.05 with a standard deviation of 0.64.
+
+\(d\)
+
+```{r}
+m1 <- lm((q2_score - q1_score) ~ treatment, d)
+
+summary(m1)
+
+m2 <- lm((q2_score - q1_score) ~ treatment + q1_score, d)
+
+summary(m2)
+```
+
+Both regressions estimate the SATE to be 5.03, though model 2 is the slightest bit closer (by about 0.003). They both get closer to the actual SATE estimate than the (single sample) difference of means calculation. My guess for the difference between the two models is that model 2 takes into account that multiplying the quiz 1 score by the beta coefficient of 1.1 in the y0 and y1 equations causes the effect of the treatment to be slightly higher for those with a higher quiz 1 score?
+
+\(e\)
+
+```{r}
+SATE_reg_est <- c()
+
+for(i in 1:500){
+  
+  SATE_reg_est[i] <- 
+    d |> 
+    mutate(treated = rbinom(1, n = 100, p = .5), 
+           y_obs = ifelse(treated == 0, y0, y1),
+           dif = (y_obs - q1_score)) |> 
+    lm(dif ~ treated + q1_score, data = _) |> 
+    tidy() |> 
+    filter(term == "treated") |> 
+    pull(estimate)
+  
+}
+```
+
+```{r}
+SATE_reg_est_plot <- 
+  SATE_reg_est |> 
+  as_tibble() |> 
+  ggplot(aes(value)) +
+  geom_density(color = "orange", linewidth = 1, trim = TRUE) +
+  geom_vline(aes(xintercept = 5.07), color = "red",  linewidth = 1) +
+  ggtitle(expression("Sampling distribution of " * widehat(SATE)))
+
+SATE_reg_est_plot
+
+mean(SATE_reg_est)
+
+sd(SATE_reg_est)
+```
+
+The mean of this distribution is 5.07 and the standard deviation is 0.14. This is the most accurate estimation of the true SATE and it is more precise than the difference of means estimate. This suggests that regression is a better method for estimating the SATE than difference of means, likely because it can take into account other factors like the initial score.

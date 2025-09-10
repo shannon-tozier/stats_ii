@@ -10,7 +10,7 @@ gss2022 <- readRDS("data/gss2022.rds")
 
 # alt + - for <-; Ctrl + Shift + m for |>
 
-d <- gss2022 |>
+d2 <- gss2022 |>
   select(educ, paeduc, maeduc) |> 
   mutate(maxpared = pmax(paeduc, maeduc, na.rm = T)) |>
   drop_na(educ, maxpared)
@@ -25,16 +25,16 @@ ggplot(d,
   geom_bar() +
   theme_minimal()
 
-d <- d |> 
+d2 <- d2 |> 
   mutate(college = if_else(educ >= 16, 1, 0),
          parcol = if_else(maxpared >= 16, 1, 0))
 
 
-table(d$college, d$parcol)
+table(d2$college, d2$parcol)
 
-m1 <- glm(college ~ parcol,
-          data = d,
+m2 <- glm(college ~ parcol,
+          data = d2,
           family = binomial())
-summary(m1)
+summary(m2)
 
 tidy(m1)
