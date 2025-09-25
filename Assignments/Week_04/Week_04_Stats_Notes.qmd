@@ -1,0 +1,83 @@
+---
+title: "Week_04_Notes"
+format: html
+---
+
+```{r}
+library(tidyverse)
+library(haven)
+```
+
+```{r}
+d <- read_dta(here::here("Assignments/Week_03", "cattaneo2.dta"))
+```
+
+
+```{r}
+d <- d |> 
+  select(mbsmoke, mmarried, mrace, fbaby, alcohol, mage, nprenatal, medu)
+```
+
+
+
+
+```{r}
+psmod <- glm(mbsmoke ~ mmarried + mrace + fbaby + alcohol + mage + nprenatal + medu,
+             family = "binomial",
+             data = d)
+```
+
+```{r}
+dreal <- d
+dreal$logodds <- predict(psmod,
+                         newdata = dreal,
+                         type = "link")
+```
+
+```{r}
+d0 <- dreal
+d0$mmarried <- 0
+d0$logodds0 <- predict(psmod,
+                      newdata = d0,
+                      type = "link")
+```
+
+```{r}
+d0$mmarried <- 1
+d0$logodds1 <- predict(psmod,
+                      newdata = d0,
+                      type = "link")
+```
+
+```{r}
+d0$p0 <- exp(d0$logodds0)/(1 + exp(d0$logodds0))
+d0$p1 <- exp(d0$logodds1)/(1 + exp(d0$logodds1))
+```
+
+```{r}
+d0$me <- d0$p1 - d0$p0
+```
+
+```{r}
+mean(d0$me)
+```
+
+
+
+```{r}
+# the same thing as above but a lot faster
+marginaleffects::avg_slopes(psmod, variables = "mmarried")
+```
+
+
+
+
+
+```{r}
+library(performance)
+```
+
+```{r}
+performance_hosmer(psmod)
+```
+

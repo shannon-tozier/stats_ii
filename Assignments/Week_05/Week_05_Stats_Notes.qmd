@@ -1,0 +1,386 @@
+---
+title: "Week_05_Stats_Notes"
+format: html
+---
+
+```{r}
+library(tidyverse)
+library(MatchIt)
+library(cobalt)
+library(haven)
+```
+
+```{r}
+d <- read_dta("Assignments/Week_03/cattaneo2.dta")
+```
+
+```{r}
+psmod1 <- glm(mbsmoke ~ mmarried + alcohol + fbaby + mrace + mage + medu + nprenatal,
+              data = d,
+              family = binomial())
+```
+
+```{r}
+performance::performance_hosmer(psmod1, n = 8) # 8 bc it is one more than n variables
+```
+
+```{r}
+psmod2 <- glm(mbsmoke ~ mmarried + alcohol + fbaby + mrace + mage + medu + nprenatal +
+                I(mage^2) + I(medu^2) + I(nprenatal^2),
+              data = d,
+              family = binomial())
+```
+
+```{r}
+anova(psmod1, psmod2) 
+# df is 3 bc there are 3 variables different between the two models
+# null hypothesis is that deviance is 0
+# deviance is significant so model 2 is likely better
+# but this is likely overpowered and will reject the null too much so don't trust this one
+```
+
+### model comparison using AIC
+
+AIC = -2*loglikelihood + 2p
+
+-2*loglikelihood (deviance) is a fit term; 2p is a penalty term
+
+any time you add a new predictor, deviance will go down no matter what. but you don't want to overfit so there is a penalty for each new parameter
+
+if your sample is large enough, the model with the lowest AIC is also the model preferred by Leave one out cross validation
+
+```{r}
+ggplot(mtcars,
+       aes(wt, mpg)) +
+  geom_point(alpha = 0.3) +
+  geom_smooth(method = "lm",
+              formula = y ~ poly(x,1),
+              se = FALSE)
+
+ggplot(mtcars,
+       aes(wt, mpg)) +
+  geom_point(alpha = 0.3) +
+  geom_smooth(method = "lm",
+              formula = y ~ poly(x,2),
+              se = FALSE)
+
+ggplot(mtcars,
+       aes(wt, mpg)) +
+  geom_point(alpha = 0.3) +
+  geom_smooth(method = "lm",
+              formula = y ~ poly(x,4),
+              se = FALSE)
+
+ggplot(mtcars,
+       aes(wt, mpg)) +
+  geom_point(alpha = 0.3) +
+  geom_smooth(method = "lm",
+              formula = y ~ poly(x,10),
+              se = FALSE)
+
+ggplot(mtcars,
+       aes(wt, mpg)) +
+  geom_point(alpha = 0.3) +
+  geom_smooth(method = "lm",
+              formula = y ~ poly(x,16),
+              se = FALSE)
+
+# this is overfitting
+# model better matches the data, but it is clearly wrong! 
+# hence why AIC penalizes added parameters
+```
+
+```{r}
+AIC(psmod1, psmod2)
+# model 2 AIC is lower, so this model is probably better
+```
+
+
+### let's refocus
+
+our goal is not to create a statistical model that predicts smoking. our goal is to make s and t independent.
+
+but it is good to find a model that fits well before moving on to ps matching!
+
+```{r}
+performance::check_model(psmod2) # this is just her for fun idk
+```
+
+### time for matching!
+
+```{r}
+match1 <- matchit(mbsmoke ~ mmarried + alcohol + fbaby + mrace + mage + medu + nprenatal,
+                  data = d,
+                  method = "nearest",
+                  replace = FALSE,
+                  estimand = "ATT",
+                  distance = "glm",
+                  link = "logit")
+
+summary(match1)
+```
+
+```{r}
+love.plot(match1) # looking at unmatched vs matched covariate balance
+# standardized mean differences (smd) 
+# prob difference for binary variables; z score difference for the rest
+```
+
+1:1 matching without replacement gets problematic when nearest neighbors are actually far away
+
+```{r}
+love.plot(match1,
+          binary = "std",
+          continous = "std",
+          abs = TRUE,
+          s.d.denom = "treat",
+          line = FALSE,
+          var.order = "adj",
+          stats = c("m"),
+          thresholds = 0.1)
+```
+
+```{r}
+match_data1 <- match_data(match1)
+```
+
+
+
+
+```{r}
+match2 <- matchit(mbsmoke ~ mmarried + alcohol + fbaby + mrace + mage + medu + nprenatal,
+                  data = d,
+                  method = "nearest",
+                  replace = TRUE, # changed this from match1
+                  estimand = "ATT",
+                  distance = "glm",
+                  link = "logit")
+
+summary(match2)
+```
+
+```{r}
+love.plot(match2,
+          binary = "std",
+          continous = "std",
+          abs = TRUE,
+          s.d.denom = "treat",
+          line = FALSE,
+          var.order = "adj",
+          stats = c("m"),
+          thresholds = 0.1)
+```
+
+
+
+
+```{r}
+match3 <- matchit(mbsmoke ~ mmarried + alcohol + fbaby + mrace + mage + medu + nprenatal +
+                    I(mage^2) + I(medu^2) + I(nprenatal^2), # change from match2
+                  data = d,
+                  method = "nearest",
+                  replace = TRUE, 
+                  estimand = "ATT",
+                  distance = "glm",
+                  link = "logit")
+
+summary(match3)
+```
+
+```{r}
+love.plot(match3,
+          binary = "std",
+          continous = "std",
+          abs = TRUE,
+          s.d.denom = "treat",
+          line = FALSE,
+          var.order = "adj",
+          stats = c("m"),
+          thresholds = 0.1)
+```
+
+```{r}
+love.plot(match3,
+          binary = "std",
+          continous = "std",
+          abs = TRUE,
+          s.d.denom = "treat",
+          line = FALSE,
+          var.order = "adj",
+          stats = c("ks"), # looking at distribution overlap instead of mean
+          thresholds = 0.05)
+```
+
+
+## at no point have we looked at the actual outcome variable!!!
+
+
+
+
+
+
+
+
+
+
+
+
+
+# Lab
+
+We are going to write an algorithm that does 1:1 nearest neighbor propensity score matching with replacement
+
+Steps: 
+1) Separate treated and control units (with their respective ps scores) into two datasets 
+2) For each treated unit then:
+  a) Pick one treated unit at random
+  b) Calculate the absolute ps distance between that unit and controls
+  c) Pick the control unit with the minimum distance
+  d) Store the id of the treated and its matched control
+
+```{r}
+d2 <- readRDS("data/cattaneo.rds")
+tbl <- d2
+```
+
+```{r}
+ps_model <- glm(mbsmoke ~ mmarried + alcohol + mrace + fbaby + 
+                mage + medu + nprenatal, 
+             data = tbl,
+             family = binomial)
+```
+
+```{r}
+tbl <- 
+  tbl |> 
+  mutate(ps = predict(ps_model, type = "response")) 
+```
+
+```{r}
+tbl <- 
+  tbl |> 
+  mutate(id = row_number())
+```
+
+```{r}
+treated <- tbl |> filter(mbsmoke == 1) |>  select(id, ps)
+control <- tbl |> filter(mbsmoke == 0) |>  select(id, ps)
+```
+
+```{r}
+out <- list()
+
+for(i in 1:nrow(treated)) {
+  
+  unit <- treated[i, ]
+  id <- unit$id
+  ps <- unit$ps
+  
+  potential_match <- which.min(abs(ps - control$ps))
+  if(length(potential_match) > 1) sample(potential_match, size = 1)
+  
+  control_unit <- control[potential_match, ]
+  out[[i]] <- tibble(treated_id = id, control_id = control_unit$id)
+}
+
+matches <- bind_rows(out)
+```
+
+```{r}
+matched_data <- matches |> 
+  pivot_longer(cols = everything(),
+               names_to = "treated",
+               values_to = "id") |> 
+  left_join(tbl)
+```
+
+then we could need to check this dataset for covariate balance
+
+some are still unblanced, sooooo let's see if we can improve using a caliper
+
+
+```{r}
+tbl_matched <- 
+  matchit(mbsmoke ~ mmarried + alcohol + mrace + fbaby + 
+            mage + medu + nprenatal, 
+          data = tbl,
+          method = "nearest", 
+          distance = "glm",
+          estimand = "ATT", 
+          replace = TRUE,
+          caliper = .00001, # New argument
+          std.caliper = FALSE) # New argument
+```
+
+```{r}
+love.plot(tbl_matched, 
+          binary = "std",
+          drop.distance = TRUE,
+          var.order = "unadjusted",
+          colors = c("steelblue"), 
+          thresholds = .1, 
+          abs = TRUE)
+```
+
+Building on our algorithm for nearest neighbor matching implement the following:
+ 1) Make it into a function
+ 2) Include an argument for using a caliper 
+ 3) Include an argument for matching without replacement 
+
+```{r}
+testout <- list()
+
+caliper <- 0.001
+
+for(i in 1:nrow(treated)) {
+  
+  unit <- treated[i, ]
+  id <- unit$id
+  ps <- unit$ps
+  
+  dist <- abs(ps - control$ps)
+  potential_match <- which.min(dist)
+  
+  ### caliper
+  
+  if(dist[potential_match] > caliper) {
+    potential_match <- NULL
+  }
+  
+  ###
+  
+  if(length(potential_match) > 1) sample(potential_match, size = 1)
+  
+  
+  control_unit <- control[potential_match, ]
+  
+  ### without replacement
+  
+  if(is.null(potential_match) == FALSE) {
+  control <- control[- potential_match, ]
+  }
+  
+  ###
+  
+  testout[[i]] <- tibble(treated_id = id, control_id = control_unit$id)
+  
+  if(i %% 100 == 0) print(i/nrow(treated)) # show percentage completion as it runs
+}
+
+matches2 <- bind_rows(testout)
+```
+
+```{r}
+matched_data2 <- matches2 |> 
+  pivot_longer(cols = everything(),
+               names_to = "treated",
+               values_to = "id") |> 
+  left_join(tbl)
+```
+
+
+then we would check this one for covariant balance
+
+
+
+
