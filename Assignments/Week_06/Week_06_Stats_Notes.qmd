@@ -1,0 +1,303 @@
+---
+title: "Week_06_Stats_Notes"
+format: html
+---
+
+```{r}
+library(tidyverse)
+library(WeightIt)
+library(cobalt)
+library(broom)
+```
+
+```{r}
+d <- read_dta("Assignments/Week_03/cattaneo2.dta") |> 
+  haven::zap_labels()
+```
+
+# More Matching and Weighting
+
+Forms of weighting
+
+-   semi-parametric
+
+-   non-parametric
+
+```{r}
+w1 <- weightit(mbsmoke ~ mage + medu + nprenatal + fbaby +
+                 alcohol + mrace + mmarried + I(mage^2) + 
+                 I(medu^2) + I(nprenatal^2),
+               estimand = "ATT",
+               method = "glm",
+               data = d)
+
+summary(w1)
+```
+
+```{r}
+mod1 <- lm(bweight ~ mbsmoke,
+           data = d,
+           weight = w1$weights)
+
+summary(mod1)
+```
+
+```{r}
+psmod1 <- glm(mbsmoke ~ mage + medu + nprenatal + fbaby +
+                 alcohol + mrace + mmarried + 
+                 I(mage^2) + I(medu^2) + I(nprenatal^2),
+              data = d,
+              family = binomial())
+
+d$phat <- predict(psmod1, type = "response")
+d$weights <- w1$weights
+```
+
+```{r}
+love.plot(w1,
+          stats = "m",
+          abs = TRUE,
+          binary = "std",
+          thresholds = 0.1)
+```
+
+## Covariate balance propensity scores:
+
+maximizing loglikelihood and minimizing imbalance
+
+semi-parametric (ultimately finding betas)
+
+```{r}
+cbpswt <- weightit(mbsmoke ~ mage + medu + nprenatal + fbaby +
+                 alcohol + mrace + mmarried,
+                 data = d,
+                 estimand = "ATT",
+                 method = "cbps")
+
+summary(cbpswt)
+```
+
+```{r}
+love.plot(cbpswt,
+          stats = "m",
+          abs = TRUE,
+          binary = "std",
+          thresholds = 0.1)
+# better balance on each covariate, less balanced (but still good) on ps
+```
+
+```{r}
+love.plot(cbpswt,
+          stats = "ks",
+          abs = TRUE,
+          binary = "std",
+          thresholds = 0.05)
+
+bal.plot(cbpswt,
+         var.name = "medu",
+         type = "ecdf")
+# means are identical but distributions are not
+```
+
+## Entropy balancing
+
+finding weights that balance mean, variance, and skew of the covariants at the same time
+
+non-parametric
+
+```{r}
+entwt <- weightit(mbsmoke ~ mage + medu + nprenatal + fbaby +
+                 alcohol + mrace + mmarried,
+                 data = d,
+                 estimand = "ATT",
+                 method = "ebal",
+                 moments = 3)
+# 3 moments: mean, variance, skew
+# binary variables only have one moment (mean)
+
+summary(entwt)
+```
+
+```{r}
+love.plot(entwt,
+          stats = "m",
+          abs = TRUE,
+          binary = "std",
+          thresholds = 0.1)
+# no propensity score
+```
+
+```{r}
+love.plot(entwt,
+          stats = "ks",
+          abs = TRUE,
+          binary = "std",
+          thresholds = 0.05)
+
+bal.plot(entwt,
+         var.name = "medu",
+         type = "ecdf")
+# matches distributions better than cbps
+```
+
+# Multiple Regression
+
+Adjusting for x to make a special version of y independent of x (instead of making s and t independent)
+
+## Regression as conditional distribution
+
+```{r}
+m1 <- lm(bweight ~ mbsmoke,
+         data = d)
+
+summary(m1) 
+
+# this is literally just a difference of means (because it is one continuous predicted by one binary)
+
+# model thinks std of both groups is 568.9. gls lets there be different stds but nobody does that
+```
+
+fun simulation time
+
+```{r}
+ds <- expand_grid(
+  t = 0:1,
+  id = 1:2500 # makes every possible combination of t and id
+)
+
+ds <- ds |> 
+  rowwise() |> 
+  mutate(bweight = if_else( t == 1,
+                  rnorm(n = 1,
+                        mean = 3100,
+                        sd = 50),
+                  rnorm(n = 1,
+                        mean = 3400,
+                        sd = 800)))
+
+ggplot(ds,
+       aes(bweight,
+           group = factor(t),
+           color = factor(t))) +
+  geom_density()
+
+
+m2 <- lm(bweight ~ t,
+         data = ds)
+
+summary(m2) 
+# predicted beta (difference in means) well but still assumes homoskedasticity (same std)
+```
+
+okay back to real stuff!
+
+```{r}
+m3 <- lm(bweight ~ medu,
+         data = d) # now both are continuous
+
+summary(m3)
+# still assumes the same variance for all the distributions
+```
+
+## Linear in the Coefficients
+
+all we ever do is multiply the variable by the beta coefficient
+
+still okay to have polynomials
+
+```{r}
+ggplot(d,
+       aes(medu, bweight)) +
+  geom_smooth(method = "lm") +
+  geom_jitter(alpha = 0.3) 
+
+# most time, regressions are extrapolating from areas with a lot of data to areas with limited data
+```
+
+```{r}
+m4 <- lm(bweight ~ medu + I(medu^2),
+         data = d)
+
+summary(m4)
+```
+
+```{r}
+d |> 
+  group_by(medu) |> 
+  summarise(mw = mean(bweight),
+            n = n()) |> 
+  ggplot(aes(medu,
+             y = mw)) +
+  geom_point() +
+  geom_line() + # conditional expectation function
+  geom_smooth(
+    data = d,
+    method = "lm",
+    aes(medu, bweight), # regression line
+    se = FALSE
+  ) 
+
+# black line will only be consistent across samples for areas with a lot of data. blue line (regression) is more likely to be right next time—and that is what matters!
+```
+
+```{r}
+d |> 
+  group_by(medu) |> 
+  summarise(mw = mean(bweight),
+            n = n()) |> 
+  ggplot(aes(medu,
+             y = mw)) +
+  geom_point() +
+  geom_line() + # conditional expectation function
+  geom_smooth(
+    data = d,
+    method = "lm",
+    formula = y ~ poly(x,2),
+    aes(medu, bweight), # regression line
+    se = FALSE) 
+```
+
+## Controlling
+
+**NEVER SAY CONTROLLING AGAIN!!!!!!!!**
+
+instead say "adjusting"
+
+literally adjusting both x and y so they don't have the effect of z in them (orthogonal to z)
+
+```{r}
+# original adjustment model
+m5 <- lm(mpg ~ wt + disp,
+         data = mtcars)
+
+tidy(m5)
+
+# doing it manually
+# condition out z from x and y
+myz <- lm(mpg ~ disp,
+          data = mtcars)
+mxz <- lm(wt ~ disp,
+          data = mtcars)
+
+# get adjusted versions of y and x
+# using residuals from the z predict regressions—all the leftovers CAN'T have anything to do with disp bc residuals are not correlated with the regression line
+
+mtcars$yr <- residuals(myz)
+mtcars$xr <- residuals(mxz)
+
+# now predicting with our adjusted x and y
+# gives same result as m5 regression
+
+m5star <- lm(yr ~ xr,
+             data = mtcars)
+
+tidy(m5star)
+```
+
+This also works just by adjusting x (but not by just adjusting y).
+
+## Error vs Residual
+
+The error is the real other stuff that affects y. this is an actual "correct" number.
+
+residuals are an estimate of the errors conditional on the model (aka may or may not be correct).

@@ -1,0 +1,274 @@
+---
+title: "Stats_Homework_03"
+format: html
+---
+
+# Problem Set Part 1
+
+## 1.
+
+### a)
+
+Since we want to make the treated group match the control group, everyone in the control group will get a weight of 1
+
+Left Control Weight: 1
+
+Right Control Weight: 1
+
+Ambidextrous Control Weight: 1
+
+### b)
+
+Left Treated Weight: 10/6 = 1.667
+
+Right Treated Weight: 2/4 = 0.5
+
+Ambidextrous Treated Weight: 88/90 = 0.978
+
+### c)
+
+Left: (6\*1.667)/((1.667\*6) + (0.5\*4) + (0.978\*90)) = 0.0999998 = \~10%
+
+Right: (4\*0.5)/((1.667\*6) + (0.5\*4) + (0.978\*90)) = 0.0199 = \~2%
+
+Ambidextrous: (90\*0.978)/((1.667\*6) + (0.5\*4) + (0.978\*90)) = 0.88 = \~88%
+
+### d)
+
+\[(6\*1.667\*7) + (4\*0.5\*4) + (90\*0.978\*6)\]/\[(1.667\*6) + (0.5\*4) + (0.978\*90)\] = 6.06
+
+## 2.
+
+### a)
+
+Selecting one match will reduce bias because you are only using the best possible matches, while selecting multiple matches will reduce variance because it increases the size of the control group.
+
+### b)
+
+Using a narrow bandwidth will reduce bias because it only includes matches that are within a certain distance, but it increases variance because it risks not finding a match for some observations, which reduces the sample size
+
+### c)
+
+Selecting matches with replacement reduces bias because it lets each observation use its best match instead of moving to a less good match if the best one had already been used. However, this would also increase variance because using a control observation as a match more than once would reduce the number of control observations in the matched sample.
+
+### d)
+
+Using weights would produce more bias because you are still including the 2nd, 3rd, etc. best matches instead of just the best match, but it would reduce variance by increasing your sample size.
+
+## 3.
+
+As you increase the potential combinations of matched variables or have smaller and smaller sample sizes, it increases the risk that there will not be any observations that meet the specific criteria, so you would not be able to make any matches in that group, which excludes that group from your analysis.
+
+## 4.
+
+One downside of the propensity score matching is (d)—that you have to specify a regression model, and the fit of that model influences the accuracy of your matching and how well it actually closes back-door paths.
+
+## 5.
+
+### a)
+
+Common Support would definitely fail for the Retail businesses with 1-5 employees, as there are no control observations.
+
+### b)
+
+It would not be a problem—calculating the ATT only requires that there are control observations that match the treated observations, not that there are treated observations to match all of the control observations.
+
+### c)
+
+This one untreated observation would be the match for all of the treated observations, meaning the variance for that group would be very high.
+
+### d)
+
+Dropping all the observations for that group threatens the generalizability of the analysis, as it now can only be said to be true for of certain subset of types of businesses (the ones that we have matches for).
+
+## 6.
+
+The ATT is interested in the outcomes of treated individuals had they not been treated, therefore the untreated state of the treated observations is the counterfactual we are trying to replicate with the matches—meaning we want to find an "untreated state" (control match) for each treated observation. For the ATC, we are trying to estimate the outcomes of untreated individuals if they had been treated, meaning the counterfactual we are trying to replicate is the treated state of the untreated observations. Therefore, we need to find treated observations that can act as the counterfactual to the untreated observations.
+
+# Problem Set Part 2
+
+```{r}
+library(tidyverse)
+library(MatchIt)
+library(haven)
+```
+
+## 1.
+
+```{r}
+d <- read_rds("data/nsw_mixtape.rds")
+```
+
+## 2.
+
+### a.
+
+```{r}
+d <- d |> 
+  mutate(weight = 1)
+```
+
+### b.
+
+```{r}
+m1 <- lm(re78 ~ treat,
+         d,
+         weights = weight)
+
+summary(m1)
+```
+
+### c.
+
+```{r}
+d |> 
+  dplyr::select(treat, age, educ, black, hisp, marr, 
+                nodegree, re74, re75, weight) |> 
+  pivot_longer(cols = c(age:re75), names_to = "preds", values_to = "value") |>
+  group_by(treat, preds) |> 
+  summarise(mean = weighted.mean(value, weight)) |> 
+  arrange(preds)
+```
+
+### d.
+
+Many of the variables, especially hisp, nodegree, and re75 are not balanced between the treatment and the control group.
+
+## 3.
+
+### a.
+
+```{r}
+library(Matching)
+
+
+Y <- d %>%
+    pull(re78)
+
+D <- d %>%
+    pull(treat)
+
+X <- d %>%
+    dplyr::select(age, educ, black, hisp, marr, nodegree, re74, re75) %>%
+    as.matrix()
+
+
+M <- Match(Y, D, X, Weight = 2, M = 3, replace = TRUE)
+
+
+summary(M)
+
+
+matched_treated <- tibble(id = M$index.treated,
+                          weight = M$weights)
+matched_control <- tibble(id = M$index.control,
+                          weight = M$weights)
+matched_sets <- bind_rows(matched_treated,
+                          matched_control) 
+
+matched_sets <- matched_sets %>%
+                    group_by(id) %>%
+                    summarize(weight = sum(weight))
+
+matched_d <- d %>%
+    mutate(id = row_number()) %>%
+    left_join(matched_sets, by = 'id')
+```
+
+### b.
+
+```{r}
+matched_d |> 
+  filter(!is.na(weight.y)) |> 
+  dplyr::select(treat, age, educ, black, hisp, marr, 
+                nodegree, re74, re75, weight.y) |> 
+  pivot_longer(cols = c(age:re75), names_to = "preds", values_to = "value") |>
+  group_by(treat, preds) |> 
+  summarise(mean = weighted.mean(value, weight.y)) |> 
+  arrange(preds)
+
+
+match1 <- matchit(treat ~ age + educ + black + hisp + marr + 
+                    nodegree + re74 + re75,
+                  data = d,
+                  method = "nearest",
+                  replace = FALSE,
+                  estimand = "ATT",
+                  dratio = 3,
+                  mahvars = ~ age + educ + black + hisp + marr + 
+                    nodegree + re74 + re75)
+
+library(cobalt)
+
+love.plot(match1,
+          stats = "m",
+          abs = TRUE,
+          binary = "std",
+          thresholds = 0.1) # this is not very balanced!
+```
+
+The balance looks not great, especially for age, nodegree, and re75.
+
+### c.
+
+```{r}
+match_data1 <- match.data(match1)
+
+m2 <- lm(re78 ~ treat,
+         data = match_data1)
+
+summary(m2)
+```
+
+The ATT is an estimated increase of \$2020 in earnings.
+
+## 4.
+
+### a.
+
+```{r}
+ps_model <- glm(treat ~ age + educ + black + hisp + marr + nodegree + re74 + re75, 
+             data = d,
+             family = binomial)
+
+
+d <- 
+  d |> 
+  mutate(propensity = predict(ps_model, type = "response")) 
+```
+
+### b.
+
+```{r}
+d <- 
+  d |> 
+  mutate(ipw = if_else(d$treat == 1,
+                       1/d$propensity,
+                       1/(1-d$propensity)))
+```
+
+### c.
+
+```{r}
+d |> 
+  ggplot(aes(propensity, fill = as.factor(treat))) +
+  geom_density(alpha = .5)
+
+d |> 
+  ggplot(aes(propensity, fill = as.factor(treat))) +
+  geom_histogram(alpha = .5, color = "white", bins = 60)
+```
+
+There is not very good common support for the very low or very high propensity scores.
+
+### d.
+
+```{r}
+mod1 <- lm(re78 ~ treat,
+           data = d,
+           weight = ipw)
+
+summary(mod1)
+```
+
+The estimated treatment effect is an increase of \$1641 in earnings.
