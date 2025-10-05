@@ -296,6 +296,10 @@ tidy(m5star)
 
 This also works just by adjusting x (but not by just adjusting y).
 
+Beta: Covariance of ResidualX and Y divided by the variance of ResidualX
+
+each predictor variable gets regressed on all other predictor variables which could go nested forever but r uses linear algebra instead so there aren't one million calculations
+
 ## Error vs Residual
 
 The error is the real other stuff that affects y. this is an actual "correct" number.
