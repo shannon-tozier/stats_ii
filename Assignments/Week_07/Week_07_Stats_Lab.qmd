@@ -1,0 +1,122 @@
+---
+title: "Week_07_Stats_Lab"
+format: html
+---
+
+# Colliders
+
+```{r}
+library(tidyverse)
+library(modelsummary)
+```
+
+## simulation time
+
+```{r}
+d <- tibble(
+  beauty = rnorm(1000, 50, 10),
+  talent = rnorm(1000, 50, 5),
+  success = rnorm(1000, beauty*talent, 1)
+)
+```
+
+```{r}
+d2 <- d |> 
+  filter((success - mean(success)) > sd(success))
+```
+
+```{r}
+m1 <- lm(talent ~ beauty,
+         d2)
+
+summary(m1)
+```
+
+model shows a relationship when there is NOT one
+
+```{r}
+d |> 
+  ggplot(aes(beauty, talent)) +
+  geom_point() +
+  geom_point(data = d2, aes(beauty, talent), color = "red") +
+  geom_smooth(method = "lm", se = FALSE) +
+  geom_smooth(data = d2, method = "lm", se = FALSE)
+```
+
+when you are cutting off the sample based on a collider the relationship LOOKS very different
+
+## simulation 2
+
+with a variable (q) as both a collider and a mediator
+
+```{r}
+tbl <- tibble(
+  u = rnorm(1000, 0, 1),
+  s = rnorm(1000, 2*u, 1),
+  q = rnorm(1000, 2*u*s, 1),
+  w = rnorm(1000, u + (0.5*s) + q, 1)
+)
+```
+
+```{r}
+mod1 <- lm(w ~ s,
+           data = tbl)
+
+mod2 <- lm(w ~ s + q,
+           data = tbl)
+
+modelsummary(list(mod1, mod2), stars = TRUE)
+```
+
+hypothetically you would want to just control for u but even that is not perfect (and u is sometimes unobserved)
+
+```{r}
+mod3 <- lm(w ~ s + u,
+           data = tbl)
+
+modelsummary(list(mod1, mod2, mod3), stars = TRUE)
+```
+
+so this is when an instrumental variable would be the way to go!
+
+## simulation 3
+
+networks!
+
+```{r}
+sim <- tibble(
+  ui = rnorm(1000, 0, 1),
+  uj = rnorm(1000, 0, 1),
+  yjt = rnorm(1000, uj, 1),
+  yit = rnorm(1000, ui, 1),
+  yjtt = rnorm(1000, uj + yjt, 1),
+  yitt = rnorm(1000, ui + yit, 1)
+) |> 
+  mutate(fij = ifelse(abs(ui-uj) < 0.25, 1, 0))
+```
+
+```{r}
+sim2 <- sim |> 
+  filter(fij == 1)
+```
+
+```{r}
+reg1 <- lm(yjtt ~ yit,
+           data = sim)
+
+reg2 <- lm(yjtt ~ yit,
+           data = sim2)
+
+modelsummary(list(reg1, reg2), stars = TRUE)
+```
+
+model sees a strong relationship that is not there when looking at people with ties
+
+```{r}
+sim |> 
+  ggplot(aes(yit, yjtt)) +
+  geom_point() +
+  geom_point(data = sim2, aes(yit, yjtt), color = "red") +
+  geom_smooth(method = "lm", se = FALSE) +
+  geom_smooth(data = sim2, method = "lm", se = FALSE)
+```

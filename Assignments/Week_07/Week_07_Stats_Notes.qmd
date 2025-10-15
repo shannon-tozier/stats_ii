@@ -1,0 +1,204 @@
+---
+title: "Week_07_Stats_Notes"
+format: html
+---
+
+# Continued Regression
+
+```{r}
+library(tidyverse)
+```
+
+## Errors vs Residuals
+
+### Simulation
+
+Creating a world where y = 3 + 2x + e and e is normally distributed with a mean of 0 and a sd of 10. x is normally distributed with a mean of 0 and a sd of 5. generate 200 cases.
+
+```{r}
+sampsize <- 200
+
+simdata <- tibble(
+  x = rnorm(sampsize, 0, 5),
+  e = rnorm(sampsize, 0, 10)) |> 
+  mutate(y = 3 + 2*x + e)
+```
+
+let's see how good the regression is!
+
+```{r}
+m1 <- lm(y ~ x,
+         data = simdata)
+
+summary(m1) 
+```
+
+estimate is not quiiite 2 but it is close
+
+let's add the estimates to the data frame
+
+```{r}
+simdata <- simdata |> 
+  mutate (y_hat = predict(m1))
+```
+
+time to get the residuals (manually)
+
+```{r}
+simdata$r <- (simdata$y - simdata$y_hat)
+```
+
+residuals and errors are close, but NOT exactly the same
+
+**!!!!!regression model assumes that e and x are completely uncorrelated, so it makes r and x completely independent!!!!**
+
+let's make a comparison plot of errors vs residuals
+
+```{r}
+ggplot(simdata,
+       aes(e,r)) +
+  geom_point()
+```
+
+and a plot of real y vs predicted y
+
+```{r}
+ggplot(simdata,
+       aes(y,y_hat)) +
+  geom_point()
+```
+
+ok let's look at the real data compared with the regression prediction
+
+```{r}
+ggplot(simdata,
+       aes(x,y)) +
+  geom_point(alpha = 0.3) +
+  geom_smooth(method = "lm", se = FALSE) +
+  geom_abline(intercept = 3,
+              slope = 2)
+```
+
+when sample size gets smaller, predictions get worse \[run it over and over with the same and different sizes\]
+
+let's look at predicted y and residuals. they should be independent.
+
+```{r}
+ggplot(simdata,
+       aes(y_hat, r)) +
+  geom_point() +
+  geom_hline(yintercept = 0)
+```
+
+time to do it again but add in x\^2
+
+```{r}
+simdata2 <- tibble(
+  x = rnorm(sampsize, 0, 5),
+  e = rnorm(sampsize, 0, 10)) |> 
+  mutate(y = 3 + 2*x + 0.5*x^2 + e)
+```
+
+```{r}
+m2 <- lm(y ~ x,
+         data = simdata2)
+
+summary(m2) 
+```
+
+```{r}
+simdata2 <- simdata2 |> 
+  mutate (y_hat = predict(m2))
+```
+
+```{r}
+simdata2$r <- (simdata2$y - simdata2$y_hat)
+```
+
+now yhat and residuals will not be uncorrelated (bc the relationship is not linear)
+
+```{r}
+ggplot(simdata2,
+       aes(y_hat, r)) +
+  geom_point() +
+  geom_hline(yintercept = 0)
+```
+
+can use performance::check_model() to look at this
+
+## link test
+
+*check engine light for your model*
+
+mainly a check for functional form, not omitted variables but \[insert something complicated\]
+
+relationship between y and y_hat
+
+```{r}
+check1 <- lm(y ~ y_hat,
+             data = simdata)
+
+summary(check1)
+```
+
+coefficient is 1 bc we estimated a model where y_hat is a presumed perfect estimate of y
+
+**if there is something you can do to yhat to make it predict y better, you should have made your model predict yhat better in the first place**
+
+```{r}
+check2 <- lm(y ~ y_hat + I(y_hat^2),
+             data = simdata)
+
+summary(check2)
+```
+
+\^ still basically a coefficient of 1 for the linear estimate (and approx 0 for the quadratic)
+
+**\~!\~ when we estimate a regression model when we want to know the EFFECT of x on y we HAVE to assume that x and e share no common ancestors \~!\~**
+
+\^ bc there is always shit out there and our model is not deterministic
+
+## the wrong models
+
+what happens when the models are wrong?
+
+### another simulation
+
+simulations start with exogenous variables (the ones that come from outside the system)
+
+endogenous variables always have 2 components: systematic and idiosyncratic (bc they are not deterministic)
+
+```{r}
+sampsize2 <- 2000
+
+simdata3 <- tibble(
+  u = rnorm(sampsize2, 0, 1),
+  e = rnorm(sampsize2, 0, 1),
+  a = rnorm(sampsize2, 0, 1),
+  z = rnorm(sampsize2, u, 1),
+  x = rnorm(sampsize2, u, 1),
+  y = x + z + a + e)
+
+cor(simdata3)
+```
+
+```{r}
+m3 <- lm(y ~ x,
+         data = simdata3)
+
+summary(m3)
+```
+
+true beta is 1, estimate is \~ 1.5 (biased). the residuals here are going to be e AND z AND u which means they are correlated with x (uh-oh)!
+
+```{r}
+m4 <- lm(y ~ x + a,
+         data = simdata3)
+
+summary(m4)
+
+library(modelsummary)
+msummary(list(m3, m4))
+```
+
+adjusting for a does basically nothing except help decrease the standard error on the x coefficient
