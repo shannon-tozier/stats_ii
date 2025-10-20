@@ -1,0 +1,174 @@
+---
+title: "Stats_Homework_04"
+format: html
+---
+
+# Part One
+
+### Question 1
+
+A\) The error is 1
+
+B\) The residual is 0.9
+
+### Question 2
+
+Top left: Y = X + D
+
+Top right: Y = X + D
+
+Bottom left: Y = X
+
+Bottom right: Y = X
+
+### Question 3
+
+A\) 76.185
+
+B\) 19.693
+
+C\) 306.553
+
+D\) 778.965
+
+E\) Yes, the coefficient is significant. The estimates are 12.13 and 13.03 standard deviations away from 0 (respectively).
+
+### Question 4
+
+A\) 110.230 - 3.162Edu
+
+B\) Annual hours worked would increase by 59.638
+
+C\) The relationship gets less positive as education increases.
+
+D\) Adding too many polynomial terms makes the relationship between the variables increasingly difficult to interpret.
+
+### Question 5
+
+A\) The coefficient suggests that being a homeowner is associated with a 50.174 hour increase in the number of hours worked compared to someone who is not a homeowner. However, this estimate is not statistically significant.
+
+B\) The model suggests that people with 4 children work 150.492 less hours than people with 3 children.
+
+C). We cannot tell from this table. We would need to rerun the regression using "2 children under 5" as the base of comparison rather than "0 children under 5".
+
+### Question 6
+
+A\) A one unit increase in education is associated with either a 56.079 or a 110.073 increase in hours worked depending on whether or not the individual is a homeowner.
+
+B\) The coefficient means that being a homeowner causes each one-unit increase in education to cause an increase in hours worked that is 53.994 hours less than if the individual was not a homeowner.
+
+C\) For individuals who are not homeowners, a one-unit increase in education is associated with a 6.9% increase in hours worked.
+
+D\) A 1% increase in education is associated with an 8.3 hour increase of hours worked.
+
+E\) The sample size is likely smaller because observations in the sample may have worked 0 hours, which would not produce an interperetable value when logged.
+
+### Question 7
+
+The most accurate definition is (B)
+
+### Question 8
+
+\(B\) and (E)
+
+### Question 9
+
+They could use sample weights to adjust the proportions of groups in their sample to reflect the proportions of groups in the larger population.
+
+### Question 10
+
+\(A\)
+
+# Part Two
+
+```{r}
+library(tidyverse)
+library(modelsummary)
+library(fixest)
+```
+
+```{r}
+d <- read.csv("data/dengue.csv")
+```
+
+### Question 1
+
+```{r}
+m1 <- lm(NoYes ~ humid + temp,
+         data = d)
+
+modelsummary(m1)
+```
+
+### Question 2
+
+```{r}
+m2 <- glm(NoYes ~ humid + temp,
+          family = "binomial",
+          data = d)
+
+modelsummary(m2)
+```
+
+For each one degree increase in temperature, the odds of dengue increase by 4.1%. For each one unit increase in humidity, the odds of dengue increase by 35.7%.
+
+### Question 3
+
+```{r}
+m3 <- lm(humid ~ temp,
+         data = d,
+         na.action = na.exclude)
+
+modelsummary(m3)
+```
+
+```{r}
+d$residuals <- residuals(m3)
+```
+
+```{r}
+ggplot(data = d,
+       aes(temp, residuals)) +
+  geom_point() +
+  geom_hline(yintercept = 0, color = "red")
+```
+
+```{r}
+m4 <- feols(humid ~ temp, 
+            data = d, 
+            se = "hetero")
+
+modelsummary(m4)
+```
+
+```{r}
+modelsummary(list(m3, m4))
+```
+
+The standard errors did not substantively change, so I would say there is not a meaningful level of heteroskedasticity.
+
+### Question 4
+
+```{r}
+m5 <- feols(log(humid) ~ temp,
+            data = d,
+            se = "hetero")
+
+modelsummary(m5)
+```
+
+For a one degree increase in temperature, we would expect to see a 5.8% increase in humidity.
+
+### Question 5
+
+```{r}
+ggplot(data = d,
+       aes(temp, humid)) +
+  geom_point()
+
+ggplot(data = d,
+       aes(temp, log(humid))) +
+  geom_point()
+```
+
+The original graph looks vaguely like an exponential curve, which suggests logging the y variable. The second plot shows that logging the y variable transforms the relationship to more resemble a linear relationship.
