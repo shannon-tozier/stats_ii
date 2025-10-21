@@ -1,0 +1,172 @@
+---
+title: "Week_08_Stats_Notes"
+format: html
+---
+
+# Doubly-Robust Estimation
+
+combining matching/weighting and regression
+
+```{r}
+library(tidyverse)
+library(modelsummary)
+library(marginaleffects)
+```
+
+```{r}
+load("data/exercise_data.RData")
+```
+
+```{r}
+m1 <- lm(re78 ~ treat,
+         data = d)
+
+modelsummary(m1)
+```
+
+```{r}
+m2 <- lm(re78 ~ treat + age + educ + black + 
+           hisp + married + re75 + nodegr + 
+           u75 + re74 + u74,
+         data = d)
+
+summary(m2)
+```
+
+descriptives
+
+```{r}
+ggplot(d,
+       aes(x = re74,
+           group = factor(treat),
+           fill = factor(treat))) +
+  geom_density(alpha = .5)
+
+ggplot(d,
+       aes(x = educ,
+           group = factor(treat),
+           fill = factor(treat))) +
+  geom_density(alpha = .5)
+
+ggplot(d,
+       aes(x = age,
+           group = factor(treat),
+           fill = factor(treat))) +
+  geom_density(alpha = .5)
+```
+
+### crazy regression shit
+
+interaction terms let different people have different treatment effects
+
+```{r}
+m3 <- lm(re78 ~ treat*(re75 + re74 +
+           u74 + u75 + age + educ + married +
+             nodegr + black + hisp),
+         data = d)
+
+summary(m3)
+```
+
+for a 20 y/o single white guy with 12 years of education (with a degree) who made \$1000 in 74 and 75
+
+```{r}
+-0.39634 + -0.69218 + -0.04173 + 0.09628*20 + -0.16129*12
+```
+
+**to find the ATT, you would plug in the mean values of each characteristic for the treated group!!**
+
+### predictions
+
+```{r}
+d$yhat <- predict(m3)
+```
+
+making counterfactuals
+
+```{r}
+d0 <- d |> 
+  mutate(treat = 0)
+
+d1 <- d |> 
+  mutate(treat = 1)
+```
+
+```{r}
+pred0 <- predict(m3, newdata = d0)
+
+pred1 <- predict(m3, newdata = d1)
+```
+
+```{r}
+d$pred0 <- pred0
+
+d$pred1 <- pred1
+```
+
+```{r}
+d$effect <- d$pred1 - d$pred0 
+```
+
+```{r}
+ggplot(d,
+       aes(x = effect)) +
+  geom_density() +
+  geom_vline(xintercept = 0,
+             linetype = 2)
+```
+
+**easier way**
+
+```{r}
+avg_slopes(m3,
+           variables = "treat",
+           by = "treat")
+```
+
+### weighting instead
+
+```{r}
+library(WeightIt)
+```
+
+```{r}
+w1 <- weightit(treat ~ re75 + re74 + u74 + u75 +
+                 age + educ + married + nodegr + black + hisp,
+               method = "cbps",
+               over = TRUE,
+               data = d,
+               estimand = "ATT")
+
+summary(w1)
+```
+
+we end up with basically only 40 control observations (most of these people are useless)
+
+**weighting estimate**
+
+```{r}
+mw1 <- lm(re78 ~ treat,
+          weights = w1$weights,
+          data = d)
+
+summary(mw1)
+```
+
+## actually doing doubly robust
+
+```{r}
+dr1 <- lm(re78 ~ treat*(re75 + re74 +
+           u74 + u75 + age + educ + married +
+             nodegr + black + hisp),
+         data = d,
+         weights = w1$weights)
+
+summary(dr1)
+```
+
+```{r}
+avg_slopes(dr1,
+           variables = "treat",
+           by = "treat")
+```

@@ -15,7 +15,7 @@ B\) The residual is 0.9
 
 Top left: Y = X + D
 
-Top right: Y = X + D
+Top right: Y = X + D (using D as a proxy for A)
 
 Bottom left: Y = X
 
@@ -145,7 +145,7 @@ modelsummary(m4)
 modelsummary(list(m3, m4))
 ```
 
-The standard errors did not substantively change, so I would say there is not a meaningful level of heteroskedasticity.
+Despite the plot potentially looking like heteroskedasticity, the standard errors did not substantively change, so I would say there is not a meaningful level of heteroskedasticity.
 
 ### Question 4
 
