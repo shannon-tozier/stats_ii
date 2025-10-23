@@ -170,3 +170,35 @@ avg_slopes(dr1,
            variables = "treat",
            by = "treat")
 ```
+
+# Interaction Terms
+
+Interactions require a much bigger sample (16x larger for half the size)
+
+Standard errors for interaction terms are 4x as big as those for main effects
+
+```{r}
+library(tidyverse)
+library(gapminder)
+library(marginaleffects)
+library(modelsummary)
+```
+
+```{r}
+data("gapminder")
+tbl <-
+  gapminder |> 
+  janitor::clean_names() |> 
+  mutate(gdp = gdp_percap/1e3,
+         year2 = year - min(year)) |> 
+  filter(continent %in% c("Americas", "Europe", "Africa"))
+```
+
+effect of gdp on life expectancy varies by continent
+
+```{r}
+m1 <- lm(life_exp ~ gdp*continent, data = tbl)
+modelsummary(m1)
+```
+
+you can calculate the average effect, but that is not the same as the coefficient on gdp
