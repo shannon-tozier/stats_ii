@@ -1,0 +1,60 @@
+---
+title: "Week_10_Stats_Notes"
+format: html
+---
+
+# Mixed Models
+
+No pooling: taking everything literally. each group is independent
+
+Partial pooling: groups get pulled towards the middle (to some extent)
+
+Complete pooling: groups don't exist, only the whole population
+
+# Multivariate Models
+
+### Types of variables and their variance 
+
+-   Level 2: only vary at level 2 (upper level). ICC = 1 (ex: GDP of a country is the same for every person in that country)
+
+-   Level 1 with Level 1 and 2 variation: measured at level one, but varies at both levels. ICC between 0 and 1. (ex: age, education—vary by person, but groups also have different averages)
+
+-   Level 1 with only L1 variance: rare and constructed (don't happen unless you make them). ICC = 0. (ex: income percentile. vary by individual within the group, but percentiles are the same across groups). This implies that all level 2 units have the exact same mean, which is basically impossible. even when we try to construct one, it might not be possible
+
+**Outcome variables are "middle type"**
+
+-   *ALWAYS* have both within variance and between variance
+
+-   models can be better or worse at explaining one type of variance than the other
+
+Models can account for L2 variance even if they don't include L2 variables
+
+In fact, it is almost always easier to predict variance at L2 because aggregates tend to even out
+
+## Random Slopes
+
+Random slopes mean the effect of a L1 variable can vary based on L2 characteristics
+
+This means we can find interactions between **observed** L1 variables and **unobserved** L2 variables
+
+**this is the starting point. you should keep going to figure out what those L2 variables are**
+
+We can make \^ explicit by using cross-level interactions in the model
+
+# Summary
+
+-   Only L1 variance in predictors can reduce L1 variance in outcome
+
+-   Only L2 variance in predictors can reduce L2 variance in outcome
+
+-   Only cross-level interactions can reduce variance of random slopes
+
+**This is why it is ESSENTIAL to know where the variance is**
+
+**A mixed model is just a linear regression with an extra error term (the L2 variance)**
+
+-   this model assumes that the effect of moving an average is the same as the effect of moving a person.
+
+-   but multilevel data lets us test this assumption!!
+
+-   these assumptions matter more when the levels of between and within variance are more similar

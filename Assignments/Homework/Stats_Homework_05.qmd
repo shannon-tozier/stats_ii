@@ -1,0 +1,79 @@
+---
+title: "Stats_Homework_05"
+format: html
+---
+
+```{r}
+library(tidyverse)
+library(lme4)
+```
+
+```{r}
+d <- readRDS("data/ess5000.rds")
+```
+
+# Preliminaries
+
+## 1.
+
+```{r}
+psych::describe(d$ppltrst)
+var(d$ppltrst)
+```
+
+The mean of ppltrst is 4.87, and the variance is 5.55.
+
+## 2.
+
+```{r}
+ggplot(d,
+       aes(ppltrst)) +
+  geom_histogram() +
+  theme_minimal()
+```
+
+The modal value is 5
+
+## 3.
+
+```{r}
+ggplot(d, 
+       aes(ppltrst, fill = ppltrst)) +
+  geom_bar() +
+  facet_wrap(~ cntry) +
+  theme_minimal()
+
+ggplot(d, 
+       aes(ppltrst, y = cntry)) +
+  geom_count(color = "blue") + 
+  theme_minimal()
+
+```
+
+Since many of the countries have very little data, and those with a lot of data follow a very similar distribution, I would expect the means to shrink towards the overall mean.
+
+# Single Dimension
+
+## 4.
+
+```{r}
+m1 <- lmer(ppltrst ~ (1 | cntry), data = d)
+
+summary(m1)
+```
+
+## 5.
+
+```{r}
+0.9131/(5.1736+0.9131)
+```
+
+## 6.
+
+```{r}
+performance::icc(m1)
+```
+
+## 7.
+
+This means that 15% of the variation is between groups, meaning most of the variation is within the countries.
