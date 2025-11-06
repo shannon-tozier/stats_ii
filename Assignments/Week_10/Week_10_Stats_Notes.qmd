@@ -13,7 +13,7 @@ Complete pooling: groups don't exist, only the whole population
 
 # Multivariate Models
 
-### Types of variables and their variance 
+### Types of variables and their variance
 
 -   Level 2: only vary at level 2 (upper level). ICC = 1 (ex: GDP of a country is the same for every person in that country)
 

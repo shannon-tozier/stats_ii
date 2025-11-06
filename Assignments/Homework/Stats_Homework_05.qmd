@@ -50,7 +50,7 @@ ggplot(d,
 
 ```
 
-Since many of the countries have very little data, and those with a lot of data follow a very similar distribution, I would expect the means to shrink towards the overall mean.
+Many of the countries have little data, which suggests high levels of shrinkage. However, most of the variation seems to be within the countries (the distributions look relatively the same for all the countries), so in the end I would not expect much shrinkage.
 
 # Single Dimension
 
@@ -59,7 +59,7 @@ Since many of the countries have very little data, and those with a lot of data 
 ```{r}
 m1 <- lmer(ppltrst ~ (1 | cntry), data = d)
 
-summary(m1)
+parameters::model_parameters(m1)
 ```
 
 ## 5.
@@ -76,4 +76,154 @@ performance::icc(m1)
 
 ## 7.
 
-This means that 15% of the variation is between groups, meaning most of the variation is within the countries.
+This means that 15% of the variation is between groups, meaning most of the variation (85%) is within the countries.
+
+## 8.
+
+```{r}
+m2 <- lm(ppltrst ~ 1,
+         data = d)
+
+summary(m2)
+```
+
+```{r}
+performance::compare_performance(m1, m2)
+```
+
+The estimates for both models are very close (only about 0.1 apart) so I would not say that the random effects are *crucial*, but the model with random intercepts did have better model fit.
+
+## 9.
+
+```{r}
+rand_ints <- as.data.frame(ranef(m1, condVar = TRUE))
+
+rand_ints
+```
+
+```{r}
+merTools::REsim(m1) |> 
+  merTools::plotREsim(labs = TRUE)
+```
+
+The country with the highest estimated trust is Denmark, while Algeria has the lowest estimated trust.
+
+```{r}
+dm <- d |> 
+  group_by(cntry) |> 
+  summarise(npm = mean(ppltrst)) |> 
+  mutate(ppm = predict(m1, newdata = dm))
+```
+
+```{r}
+ggplot(data = dm,
+       aes(npm, ppm)) +
+  geom_point() +
+  geom_abline(slope = 1, intercept = 0) +
+  theme_minimal()
+```
+
+There was more pooling than I expected, especially for the countries with low average trust levels. This is likely because those countries are also countries with less observations.
+
+# Two Dimensions
+
+## 10.
+
+```{r}
+d <- d |> 
+  mutate(edrange = eduyrs/20)
+```
+
+```{r}
+m3 <- lmer(ppltrst ~ edrange + (1 | cntry), data = d)
+
+parameters::model_parameters(m3)
+```
+
+The maximum possible effect of education on trust is estimated to be an increase of 1.64.
+
+## 11.
+
+```{r}
+pred_df <- expand_grid(
+  edrange = seq(0, 1, 0.1),
+  cntry = levels(factor(d$cntry)) )|> 
+  mutate(eduyrs = as.integer(edrange*20))
+```
+
+```{r}
+pred_df <- pred_df |> 
+  mutate(pred1 = predict(m3, newdata = pred_df))
+```
+
+```{r}
+ggplot(pred_df,
+       aes(eduyrs, pred1, 
+           group = cntry, 
+           color = cntry)) +
+  geom_smooth(method = "lm",
+              alpha = 0.5,
+              se = FALSE) +
+  geom_jitter(data = d,
+              aes(y = ppltrst),
+              alpha = 0.1) +
+  labs(y = "Predicted Trust")
+```
+
+## 12.
+
+```{r}
+m4 <- lmer(ppltrst ~ edrange + (1 + edrange | cntry), data = d)
+```
+
+```{r}
+pred_df <- pred_df |> 
+  mutate(pred2 = predict(m4, newdata = pred_df))
+```
+
+```{r}
+ggplot(pred_df,
+       aes(eduyrs, pred2, 
+           group = cntry, 
+           color = cntry)) +
+  geom_smooth(method = "lm",
+              alpha = 0.5,
+              se = FALSE) +
+  geom_jitter(data = d,
+              aes(y = ppltrst),
+              alpha = 0.1) +
+  labs(y = "Predicted Trust")
+```
+
+## 13.
+
+```{r}
+performance::compare_performance(m3, m4,
+                                 metrics = c("RMSE", "BIC"))
+```
+
+The model fit is better without the random slopes, which suggests that the difference in the effect of education between countries is minimal, and less significant than the effect of education within countries.
+
+# Multivariate Model
+
+## 14.
+
+```{r}
+d2 <- d |> 
+  mutate(across(c(agea, attend, health),
+                scales::rescale,
+                .names = "{col}01"))
+```
+
+```{r}
+m5 <- lmer(ppltrst ~ edrange + agea01 + I(agea01^2) + 
+            attend01 + health01 + female + (1 | cntry), data = d2)
+
+parameters::model_parameters(m5)
+```
+
+```{r}
+library(ggeffects)
+
+ggeffect(m5, terms = "agea01") |> plot()
+```
