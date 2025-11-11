@@ -1,0 +1,121 @@
+---
+title: "Week_10_Lab"
+format: html
+---
+
+```{r}
+library(tidyverse)
+library(lme4)
+
+d <- readRDS("data/ess5000.rds")
+```
+
+## simulating data to match regressions
+
+```{r}
+d <- d |> 
+  mutate(edrange = eduyrs/20)
+```
+
+```{r}
+m1 <- lmer(euftf ~ edrange + (1 + edrange | cntry), data = d)
+
+modelsummary::modelsummary(m1)
+```
+
+```{r}
+pred_df <- expand_grid(
+  edrange = seq(0, 1, 0.1),
+  cntry = levels(factor(d$cntry)) )|> 
+  mutate(eduyrs = as.integer(edrange*20))
+
+pred_df <- pred_df |> 
+  mutate(pred = predict(m1, newdata = pred_df))
+```
+
+```{r}
+ggplot(pred_df,
+       aes(eduyrs, pred, 
+           group = cntry, 
+           color = cntry)) +
+  geom_smooth(method = "lm",
+              alpha = 0.5,
+              se = FALSE) +
+  geom_jitter(data = d,
+              aes(y = euftf),
+              alpha = 0.1)
+```
+
+### simulation time???
+
+```{r}
+countries <- 100
+n <- 1e3
+data <- list()
+```
+
+```{r}
+for(i in 1:countries) {
+  educ <- runif(n=n)
+  data[[i]] <- tibble(country = i, educ)
+}
+
+data <- data |> bind_rows()
+```
+
+```{r}
+beta0 <- rnorm(countries, mean = 3.894, sd = 0.96)
+beta1 <- rnorm(countries, mean = 1.957, sd = 0.595)
+```
+
+```{r}
+simdata <- tibble(beta0, beta1, country = 1:countries)
+
+data <- data |> 
+  left_join(simdata) |> 
+  mutate(euftf = beta0 + beta1*educ + rnorm(countries*n, sd = 2.63)) |> 
+  mutate(country = as_factor(country))
+```
+
+```{r}
+m2 <- lmer(euftf ~ educ + (1 + educ | country), data = data)
+
+modelsummary::modelsummary(c(m1,m2))
+```
+
+### binary outcome
+
+two groups, each with Y\* = beta0 +beta1\*X + error
+
+variance of error is different by group
+
+Y_obs = 0 or 1 based on threshold of Y\*
+
+```{r}
+n <- 1e3
+```
+
+```{r}
+beta0 <- rnorm(n, mean = 0, sd = 0.2)
+beta1 <- rnorm(n, mean = 1, sd = 0.5)
+group <- sample(c(0,1), size = n, replace = TRUE)
+x <- rnorm(n)
+er0 <- rnorm(n, mean = 0, sd = 5)
+er1 <- rnorm(n, mean = 0, sd = 2)
+
+Y <- beta0 + beta1*x + er1*group - er0*(group - 1)
+```
+
+```{r}
+simdata2 <- tibble(group, Y, x)
+
+simdata2$Y_obs <- if_else(simdata2$Y > 0, 1, 0)
+```
+
+```{r}
+
+m4 <- lm(Y ~ x*group,
+         data = simdata2)
+
+modelsummary::modelsummary(m4)
+```

@@ -1,0 +1,174 @@
+---
+title: "Week_11_Stats_Notes"
+format: html
+---
+
+# review
+
+Rides(exp)~i~ = 1071 + 177Celc -402Wkn + 18.5Celc\*Wkn \# make sub i throughout
+
+Rides(exp) = alpha + beta1Celc + beta2Wkn + beta3Celc\*Wkn
+
+what does the model think the weekday/weekend difference is? it depends! (on the temp)
+
+regression numbers actually mean shit so... know what it is
+
+# longitudinal data
+
+2 things you can do
+
+-   model trajectory
+
+-   make better causal inferences
+
+```{r}
+library(tidyverse)
+library(panelr)
+```
+
+```{r}
+data("WageData") # long form data
+```
+
+## panel possibilities
+
+-   X doesn't change (like sex)
+
+    -   mixed models and growth curves (random slopes on time)
+
+-   X changes once ("treatment" introduction)
+
+    -   pre/post
+
+    -   dif-in-dif
+
+-   X changes at different times, in the same direction (having a child)
+
+    -   two-way fixed effects
+
+    -   dif-in-dif for staggered treatments
+
+-   X changes at different times, in any direction (reversible treatments like exercising)
+
+    -   two-way fixed effects
+
+    -   mixed models
+
+    -   within-between models/correlated random effects
+
+-   any of the above + X is determined dynamically
+
+## types of variance
+
+-   within-subject (aka within-group)
+
+-   between-subject (aka between-group)
+
+ICC works the same. but level 2 variance tends to be greater for panel data bc it is a function of the basis of similarity
+
+```{r}
+line_plot(WageData, lwage, id = "id", wave = "t", subset.ids = TRUE, n.random.subset = 10)
+```
+
+## types of variables
+
+-   time-constant
+
+    -   only vary between units (like race, birth year)
+
+-   time-varying
+
+    -   measured over time but almost always have with and between variance (earnings, satisfaction)
+
+```{r}
+d <- panel_data(WageData,
+                id = id,
+                wave = t)
+are_varying(d)
+```
+
+fem (gender), ed (education), and blk (race) only have between-person variance
+
+\^ have ICC of 100%
+
+## when x doesn't change
+
+regular mixed model just with people now.
+
+but there is no time in the model! assumes that fluctuations/errors across time are random
+
+simplest fix is just adding time as a normal additive variable in the model (but this still assumes that time effects everyone in the same way)
+
+### 4 ways to model time
+
+-   time affects everyone the same
+
+-   time affects everyone in the same group the same (college degree vs not, for ex.)
+
+    -   group interaction on time with no random slope on time
+
+-   every person gets their own time effect (latent growth curve model)
+
+    -   random slope on time with no group interaction on time
+
+-   combo of 2 and 3
+
+    -   random slope and group interaction on time
+
+## multilevel models DO NOT improve causal inference
+
+all it does is add another error term that is (like the og error term) assumed to be independent of the predictors
+
+it is **NOT** another control variable. it does nothing for the DAG
+
+if you want better causal inference from panel data, you have to use within-person variance or time-varying treatments
+
+we should compare people to themselves bc a lot less shit changes for a person than it might between people
+
+## when x changes once
+
+### pre-post
+
+"fixed-effects"
+
+we want to compare y1t1 - y0t0 with y0t1 - y0t0
+
+Yt1 = betaXt1 + mu + error1
+
+Yt2 = betaXt2 + mu + error2
+
+mu are things that don't change but affect y (this is the fixed effect)
+
+subtract the equations and get (Yt2-Yt1) = beta + (mu - mu) + (e2 - e1)
+
+\^ there are too many variables, so we might have to assume that e2 and e1 are equal, which is crazy, but this means beta is just the difference between Y at the two times
+
+to deal with potential e1/e2 differences, we gotta compare within the person to between the people
+
+### dif-in-dif
+
+difference within person in difference between people
+
+compare just world people with the treatment and world people to get "just treatment"
+
+we can solve everything with 4 numbers
+
+aka the difference of the time betas between treated people over time and untreated people over time
+
+this does not require the treated/untreated groups to be similar! just that we can assume time affects individual people in the same way
+
+E(y) = beta0 + beta1treat + b2post +beta3treat\*post **(with multilevel model clustered at person level)**
+
+**what we want for the ATT is beta3**
+
+and all the covariates/possible confounders are in there already!! yipppeeee!!!!!!!!!!!!
+
+\^ adding adjustment variables will NOT change beta3 (but it might change the beta on treatment)
+
+#### DiD assumptions
+
+-   parallel trends: in the absence of the treatment, the slopes would be the same
+
+-   no anticipation: treated group doesn't change their behavior in anticipation of the treatment (knowing about the treatment doesn't change shit at time 0)
+
+we can test these if we have 2 pre-treatment observations
