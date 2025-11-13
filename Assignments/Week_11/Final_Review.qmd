@@ -1,0 +1,46 @@
+---
+title: "Final_Review"
+format: html
+---
+
+-   know some formulas
+
+    -   propensity score weighting
+
+    -   ICC
+
+    -   ATT/ATE
+
+-   make sure you understand counterfactuals
+
+-   I should review the whole odds, logodds, probability thing
+
+-   know the different pooling things
+
+-   reviewed mixed model regression outputs
+
+    -   standard error is about confidence in the estimate, standard deviation is about the width of the distribution
+
+    -   practice writing regression equations
+
+-   know what the BIC is
+
+    -   which model fits the data better, accounting for the degree of complexity
+
+        -   penalizes for more parameters
+
+    -   as opposed to the R\^2 that is just about fitting the data best
+
+-   shrinkage
+
+    -   between-variance divided by (between variance + (within-group variance/# observations))
+
+    -   but the closer that \# is to 1 (as opposed to 0), the **LESS** shrinkage (think keepage factor)
+
+    -   more observations = less shrinkage
+
+    -   more between-variance/bigger ICC = less shrinkage
+
+-   reviewed interpreting regression outputs with log
+
+    -   basically understand log as percentage changes
