@@ -143,7 +143,7 @@ subtract the equations and get (Yt2-Yt1) = beta + (mu - mu) + (e2 - e1)
 
 \^ there are too many variables, so we might have to assume that e2 and e1 are equal, which is crazy, but this means beta is just the difference between Y at the two times
 
-to deal with potential e1/e2 differences, we gotta compare within the person to between the people
+to deal with potential e1/e2 differences, we gotta compare within the person to between the people (aka do did-in-dif)
 
 ### dif-in-dif
 
@@ -155,7 +155,7 @@ we can solve everything with 4 numbers
 
 aka the difference of the time betas between treated people over time and untreated people over time
 
-this does not require the treated/untreated groups to be similar! just that we can assume time affects individual people in the same way
+**this does not require the treated/untreated groups to be similar! just that we can assume time affects individual people in both groups in the same way**
 
 E(y) = beta0 + beta1treat + b2post +beta3treat\*post **(with multilevel model clustered at person level)**
 
@@ -171,4 +171,106 @@ and all the covariates/possible confounders are in there already!! yipppeeee!!!!
 
 -   no anticipation: treated group doesn't change their behavior in anticipation of the treatment (knowing about the treatment doesn't change shit at time 0)
 
-we can test these if we have 2 pre-treatment observations
+we can "test" these if we have 2 (or more) pre-treatment observations
+
+-   parallel trends: if the 2 groups are running parallel before the treatment then the suggestion is that the effect of time is the same
+
+    -   try a dif-in-dif between the first 2 (non-treated) observations, and if there is an observable effect, then the parallel trends assumption is violated
+
+#### DiD augmentations
+
+aka adding matching or weighting on pre-treatment covariates and then doing DiD
+
+yay doubly robust estimates! (but the standard errors are fucked up again unless you do a million bootstraps)
+
+## when x changes at different times (irreversibly)
+
+differential timing/staggered treatments
+
+### two-way fixed effects
+
+(secret heads-up that COVID made TWFE a whole thing and maybe it doesn't work the way we want bc this assumes that the treatment effect is the same no matter how long you've had it)
+
+trying to remove 2 major sources of confounding
+
+-   individual unit fixed effect
+
+-   effect of being observed at a particular time
+
+we don't give a shit about the people that are untreated (or treated) the whole time (okay we give a little shit bc they help tell us about time)
+
+#### linear probability models (aka ols on a dummy/binary variable)
+
+the output is in **percentage points** NOT percentage change
+
+poor? = betaMother~ij~ + mu~i~ + theta~j~ + error~ij~
+
+mu is all the shit about a person that doesn't change but affects the chance of being poor
+
+theta is the stuff about time periods that makes poverty more or less common/likely
+
+this can make predictions that someone's probability is less than 0 or more than 100
+
+#### conditional logit models (also for binary outcome)
+
+the same equation as above but this time in log odds
+
+this lets us condition out the number of times someone is in poverty to predict why those numbers are where they are instead of in a different configuration
+
+however we can't use the people that are always in the same outcome status (like always in poverty) booooo
+
+so basically we like the LPM more
+
+#### cans and can'ts of TWFE
+
+can
+
+-   adjust for ALL time-constant confounders
+
+-   adjust for effects of specific time periods
+
+-   identify homogeneous treatment effects **IF** assumptions are met
+
+    -   assumption is that the effect is constant forever and not diminishing or aggregating
+
+can't
+
+-   rule out time-varying confounders (without adding them to the model)
+
+-   rule out reverse causality
+
+    -   can find things wiggling together really good, but can't know which wiggler is the source
+
+-   deal with heterogeneous treatment effects
+
+#### adding adjustment variables
+
+you gotta manually throw in time-varying confounders
+
+**but you always gotta think about the DAG**
+
+## when x changes at different times (and you can go back and forth)
+
+still TWFE
+
+basically just look at if the wiggles follow each other
+
+**we can only estimate the effect for the kinds of people that we see switching**
+
+(unless we make some assumptions) this is ATT vs conditional ATT
+
+this also works for a continuous x
+
+**all TWFE are variance weighted** (the people with the most variance contribute the most to the estimate)
+
+# mixed-models for time-varying treatments
+
+puttin' it all together
+
+its basically just 2 different regressions (within and between) sharing coefficients
+
+but you are back to the assumptions about no correlation between x and the 2 error terms
+
+this lets us use all the people (even the ones who stayed at the same x the whole time)
+
+you can actually just put two betas in there
